@@ -1,0 +1,5 @@
+vendel-mcp
+*.exe
+*.dll
+*.so
+*.dylib
