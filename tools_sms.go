@@ -30,7 +30,14 @@ func registerSmsTools(server *mcp.Server, client *VendelClient) {
 		Name:        "send_sms",
 		Description: "Send an SMS message to one or more phone numbers via Vendel gateway",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input SendSmsInput) (*mcp.CallToolResult, any, error) {
-		result, err := client.SendSms(&SendSmsRequest{
+		if len(input.Recipients) == 0 {
+			return errorResult("send SMS", fmt.Errorf("recipients must not be empty")), nil, nil
+		}
+		if input.Body == "" {
+			return errorResult("send SMS", fmt.Errorf("body must not be empty")), nil, nil
+		}
+
+		result, err := client.SendSms(ctx, &SendSmsRequest{
 			Recipients: input.Recipients,
 			Body:       input.Body,
 			DeviceID:   input.DeviceID,
@@ -58,9 +65,15 @@ func registerSmsTools(server *mcp.Server, client *VendelClient) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListMessagesInput) (*mcp.CallToolResult, any, error) {
 		var filters []string
 		if input.Type != "" {
+			if !validateEnum(input.Type, []string{"outgoing", "incoming"}) {
+				return errorResult("list messages", fmt.Errorf("invalid type %q: must be one of outgoing, incoming", input.Type)), nil, nil
+			}
 			filters = append(filters, fmt.Sprintf(`message_type="%s"`, input.Type))
 		}
 		if input.Status != "" {
+			if !validateEnum(input.Status, []string{"pending", "assigned", "sending", "sent", "delivered", "failed", "received"}) {
+				return errorResult("list messages", fmt.Errorf("invalid status %q: must be one of pending, assigned, sending, sent, delivered, failed, received", input.Status)), nil, nil
+			}
 			filters = append(filters, fmt.Sprintf(`status="%s"`, input.Status))
 		}
 
@@ -73,7 +86,7 @@ func registerSmsTools(server *mcp.Server, client *VendelClient) {
 			perPage = 20
 		}
 
-		result, err := listRecords[SmsMessage](client, "sms_messages", &ListParams{
+		result, err := listRecords[SmsMessage](ctx, client, "sms_messages", &ListParams{
 			Filter:  strings.Join(filters, " && "),
 			Page:    page,
 			PerPage: perPage,
@@ -104,7 +117,10 @@ func registerSmsTools(server *mcp.Server, client *VendelClient) {
 		Name:        "get_message",
 		Description: "Get detailed information about a specific SMS message",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetMessageInput) (*mcp.CallToolResult, any, error) {
-		m, err := getRecord[SmsMessage](client, "sms_messages", input.MessageID)
+		if !validateRecordID(input.MessageID) {
+			return errorResult("get message", fmt.Errorf("invalid message_id %q", input.MessageID)), nil, nil
+		}
+		m, err := getRecord[SmsMessage](ctx, client, "sms_messages", input.MessageID)
 		if err != nil {
 			return errorResult("get message", err), nil, nil
 		}

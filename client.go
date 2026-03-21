@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,7 +10,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
+
+const maxResponseSize = 10 << 20 // 10 MB
 
 // VendelClient is an HTTP client wrapper for the Vendel API.
 type VendelClient struct {
@@ -23,11 +27,11 @@ func NewVendelClient(baseURL, apiKey string) *VendelClient {
 	return &VendelClient{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		apiKey:  apiKey,
-		http:    &http.Client{},
+		http:    &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-func (c *VendelClient) request(method, path string, body any) ([]byte, error) {
+func (c *VendelClient) request(ctx context.Context, method, path string, body any) ([]byte, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -37,7 +41,7 @@ func (c *VendelClient) request(method, path string, body any) ([]byte, error) {
 		bodyReader = bytes.NewReader(data)
 	}
 
-	req, err := http.NewRequest(method, c.baseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -51,7 +55,7 @@ func (c *VendelClient) request(method, path string, body any) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
@@ -71,16 +75,16 @@ func (c *VendelClient) request(method, path string, body any) ([]byte, error) {
 	return respBody, nil
 }
 
-func (c *VendelClient) get(path string, result any) error {
-	data, err := c.request("GET", path, nil)
+func (c *VendelClient) get(ctx context.Context, path string, result any) error {
+	data, err := c.request(ctx, "GET", path, nil)
 	if err != nil {
 		return err
 	}
 	return json.Unmarshal(data, result)
 }
 
-func (c *VendelClient) post(path string, body, result any) error {
-	data, err := c.request("POST", path, body)
+func (c *VendelClient) post(ctx context.Context, path string, body, result any) error {
+	data, err := c.request(ctx, "POST", path, body)
 	if err != nil {
 		return err
 	}
@@ -88,18 +92,18 @@ func (c *VendelClient) post(path string, body, result any) error {
 }
 
 // SendSms sends an SMS via the Vendel API.
-func (c *VendelClient) SendSms(input *SendSmsRequest) (*SendSmsResponse, error) {
+func (c *VendelClient) SendSms(ctx context.Context, input *SendSmsRequest) (*SendSmsResponse, error) {
 	var result SendSmsResponse
-	if err := c.post("/api/sms/send", input, &result); err != nil {
+	if err := c.post(ctx, "/api/sms/send", input, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
 // GetQuota returns the current user's quota and plan info.
-func (c *VendelClient) GetQuota() (*QuotaResponse, error) {
+func (c *VendelClient) GetQuota(ctx context.Context) (*QuotaResponse, error) {
 	var result QuotaResponse
-	if err := c.get("/api/plans/quota", &result); err != nil {
+	if err := c.get(ctx, "/api/plans/quota", &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -115,7 +119,6 @@ type ListParams struct {
 
 // Encode encodes the parameters into a query string.
 func (p *ListParams) Encode() string {
-	// A bit ugly, but it works.
 	params := url.Values{}
 	if p.Filter != "" {
 		params.Set("filter", p.Filter)
@@ -137,31 +140,31 @@ func (p *ListParams) Encode() string {
 }
 
 // listRecords fetches a paginated list from a PocketBase collection.
-func listRecords[T any](c *VendelClient, collection string, params *ListParams) (*PaginatedResponse[T], error) {
-	query := params.encode()
+func listRecords[T any](ctx context.Context, c *VendelClient, collection string, params *ListParams) (*PaginatedResponse[T], error) {
+	query := params.Encode()
 	path := fmt.Sprintf("/api/collections/%s/records%s", collection, query)
 	var result PaginatedResponse[T]
-	if err := c.get(path, &result); err != nil {
+	if err := c.get(ctx, path, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
 // getRecord fetches a single record from a PocketBase collection.
-func getRecord[T any](c *VendelClient, collection, id string) (*T, error) {
+func getRecord[T any](ctx context.Context, c *VendelClient, collection, id string) (*T, error) {
 	path := fmt.Sprintf("/api/collections/%s/records/%s", collection, id)
 	var result T
-	if err := c.get(path, &result); err != nil {
+	if err := c.get(ctx, path, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
 // createRecord creates a record in a PocketBase collection.
-func createRecord[T any](c *VendelClient, collection string, data any) (*T, error) {
+func createRecord[T any](ctx context.Context, c *VendelClient, collection string, data any) (*T, error) {
 	path := fmt.Sprintf("/api/collections/%s/records", collection)
 	var result T
-	if err := c.post(path, data, &result); err != nil {
+	if err := c.post(ctx, path, data, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

@@ -16,7 +16,7 @@ func registerQuotaTools(server *mcp.Server, client *VendelClient) {
 		Name:        "check_quota",
 		Description: "Check your current SMS quota, plan limits, and usage",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input EmptyInput) (*mcp.CallToolResult, any, error) {
-		q, err := client.GetQuota()
+		q, err := client.GetQuota(ctx)
 		if err != nil {
 			return errorResult("check quota", err), nil, nil
 		}
@@ -42,7 +42,7 @@ func registerQuotaTools(server *mcp.Server, client *VendelClient) {
 		Description: "Current SMS quota and plan limits",
 		MIMEType:    "application/json",
 	}, func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-		q, err := client.GetQuota()
+		q, err := client.GetQuota(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("fetch quota: %w", err)
 		}

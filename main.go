@@ -9,13 +9,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func main() {
-	baseURL := os.Getenv("VENDEL_URL")
-	apiKey := os.Getenv("VENDEL_API_KEY")
-
+// createServer builds the MCP server with all tools and resources registered.
+func createServer(baseURL, apiKey string) (*mcp.Server, error) {
 	if baseURL == "" || apiKey == "" {
-		fmt.Fprintln(os.Stderr, "VENDEL_URL and VENDEL_API_KEY environment variables are required")
-		os.Exit(1)
+		return nil, fmt.Errorf("VENDEL_URL and VENDEL_API_KEY environment variables are required")
 	}
 
 	client := NewVendelClient(baseURL, apiKey)
@@ -29,6 +26,16 @@ func main() {
 	registerQuotaTools(server, client)
 	registerTemplateTools(server, client)
 	registerScheduledTools(server, client)
+
+	return server, nil
+}
+
+func main() {
+	server, err := createServer(os.Getenv("VENDEL_URL"), os.Getenv("VENDEL_API_KEY"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		log.Fatal(err)

@@ -21,7 +21,7 @@ func registerTemplateTools(server *mcp.Server, client *VendelClient) {
 		Name:        "list_templates",
 		Description: "List available SMS templates",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListTemplatesInput) (*mcp.CallToolResult, any, error) {
-		result, err := listRecords[SmsTemplate](client, "sms_templates", &ListParams{
+		result, err := listRecords[SmsTemplate](ctx, client, "sms_templates", &ListParams{
 			Sort: "-created",
 		})
 		if err != nil {
@@ -45,12 +45,19 @@ func registerTemplateTools(server *mcp.Server, client *VendelClient) {
 		Name:        "send_template",
 		Description: "Send an SMS using an existing template",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input SendTemplateInput) (*mcp.CallToolResult, any, error) {
-		template, err := getRecord[SmsTemplate](client, "sms_templates", input.TemplateID)
+		if !validateRecordID(input.TemplateID) {
+			return errorResult("send template", fmt.Errorf("invalid template_id %q", input.TemplateID)), nil, nil
+		}
+		if len(input.Recipients) == 0 {
+			return errorResult("send template", fmt.Errorf("recipients must not be empty")), nil, nil
+		}
+
+		template, err := getRecord[SmsTemplate](ctx, client, "sms_templates", input.TemplateID)
 		if err != nil {
 			return errorResult("fetch template", err), nil, nil
 		}
 
-		result, err := client.SendSms(&SendSmsRequest{
+		result, err := client.SendSms(ctx, &SendSmsRequest{
 			Recipients: input.Recipients,
 			Body:       template.Body,
 			DeviceID:   input.DeviceID,

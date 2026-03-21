@@ -28,6 +28,19 @@ func registerScheduledTools(server *mcp.Server, client *VendelClient) {
 		Name:        "schedule_sms",
 		Description: "Schedule an SMS for future delivery (one-time or recurring)",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ScheduleSmsInput) (*mcp.CallToolResult, any, error) {
+		if input.Name == "" {
+			return errorResult("schedule SMS", fmt.Errorf("name must not be empty")), nil, nil
+		}
+		if len(input.Recipients) == 0 {
+			return errorResult("schedule SMS", fmt.Errorf("recipients must not be empty")), nil, nil
+		}
+		if input.Body == "" {
+			return errorResult("schedule SMS", fmt.Errorf("body must not be empty")), nil, nil
+		}
+		if !validateEnum(input.ScheduleType, []string{"one_time", "recurring"}) {
+			return errorResult("schedule SMS", fmt.Errorf("invalid schedule_type %q: must be one of one_time, recurring", input.ScheduleType)), nil, nil
+		}
+
 		tz := input.Timezone
 		if tz == "" {
 			tz = "UTC"
@@ -51,7 +64,7 @@ func registerScheduledTools(server *mcp.Server, client *VendelClient) {
 			data["device_id"] = input.DeviceID
 		}
 
-		result, err := createRecord[ScheduledSms](client, "scheduled_sms", data)
+		result, err := createRecord[ScheduledSms](ctx, client, "scheduled_sms", data)
 		if err != nil {
 			return errorResult("schedule SMS", err), nil, nil
 		}
@@ -83,10 +96,13 @@ func registerScheduledTools(server *mcp.Server, client *VendelClient) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListScheduledInput) (*mcp.CallToolResult, any, error) {
 		filter := ""
 		if input.Status != "" {
+			if !validateEnum(input.Status, []string{"active", "paused", "completed"}) {
+				return errorResult("list scheduled SMS", fmt.Errorf("invalid status %q: must be one of active, paused, completed", input.Status)), nil, nil
+			}
 			filter = fmt.Sprintf(`status="%s"`, input.Status)
 		}
 
-		result, err := listRecords[ScheduledSms](client, "scheduled_sms", &ListParams{
+		result, err := listRecords[ScheduledSms](ctx, client, "scheduled_sms", &ListParams{
 			Filter: filter,
 			Sort:   "-created",
 		})

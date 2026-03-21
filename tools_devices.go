@@ -19,10 +19,13 @@ func registerDeviceTools(server *mcp.Server, client *VendelClient) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListDevicesInput) (*mcp.CallToolResult, any, error) {
 		filter := ""
 		if input.DeviceType != "" {
+			if !validateEnum(input.DeviceType, []string{"android", "modem"}) {
+				return errorResult("list devices", fmt.Errorf("invalid device_type %q: must be one of android, modem", input.DeviceType)), nil, nil
+			}
 			filter = fmt.Sprintf(`device_type="%s"`, input.DeviceType)
 		}
 
-		result, err := listRecords[SmsDevice](client, "sms_devices", &ListParams{
+		result, err := listRecords[SmsDevice](ctx, client, "sms_devices", &ListParams{
 			Filter: filter,
 			Sort:   "-created",
 		})
