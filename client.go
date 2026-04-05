@@ -100,6 +100,15 @@ func (c *VendelClient) SendSms(ctx context.Context, input *SendSmsRequest) (*Sen
 	return &result, nil
 }
 
+// SendSmsTemplate sends an SMS using a saved template via the Vendel API.
+func (c *VendelClient) SendSmsTemplate(ctx context.Context, input *SendSmsTemplateRequest) (*SendSmsResponse, error) {
+	var result SendSmsResponse
+	if err := c.post(ctx, "/api/sms/send-template", input, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // GetQuota returns the current user's quota and plan info.
 func (c *VendelClient) GetQuota(ctx context.Context) (*QuotaResponse, error) {
 	var result QuotaResponse

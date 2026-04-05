@@ -7,6 +7,14 @@ type SendSmsRequest struct {
 	DeviceID   string   `json:"device_id,omitempty"`
 }
 
+// SendSmsTemplateRequest is the request body for POST /api/sms/send-template.
+type SendSmsTemplateRequest struct {
+	Recipients []string          `json:"recipients"`
+	TemplateID string            `json:"template_id"`
+	Variables  map[string]string `json:"variables,omitempty"`
+	DeviceID   string            `json:"device_id,omitempty"`
+}
+
 // SendSmsResponse is the response from POST /api/sms/send.
 type SendSmsResponse struct {
 	BatchID         string   `json:"batch_id,omitempty"`

@@ -74,20 +74,18 @@ func TestListTemplatesTool_Error(t *testing.T) {
 
 func TestSendTemplateTool_Success_WithBatchID(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/collections/sms_templates/records/", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(SmsTemplate{
-			ID: "tpl_1", Name: "Greeting", Body: "Hello World",
-		})
-	})
-	mux.HandleFunc("/api/sms/send", func(w http.ResponseWriter, r *http.Request) {
-		var req SendSmsRequest
+	mux.HandleFunc("/api/sms/send-template", func(w http.ResponseWriter, r *http.Request) {
+		var req SendSmsTemplateRequest
 		json.NewDecoder(r.Body).Decode(&req)
-		if req.Body != "Hello World" {
-			t.Errorf("Body = %q, want template body %q", req.Body, "Hello World")
+		if req.TemplateID != "tpl_1" {
+			t.Errorf("TemplateID = %q, want %q", req.TemplateID, "tpl_1")
+		}
+		if req.Variables["code"] != "1234" {
+			t.Errorf("Variables[code] = %q, want %q", req.Variables["code"], "1234")
 		}
 		json.NewEncoder(w).Encode(SendSmsResponse{
 			BatchID: "batch_1", MessageIDs: []string{"msg_1"},
-			RecipientsCount: 1, Status: "queued",
+			RecipientsCount: 1, Status: "accepted",
 		})
 	})
 	session, cleanup := setupMCP(t, mux)
@@ -96,12 +94,13 @@ func TestSendTemplateTool_Success_WithBatchID(t *testing.T) {
 	result, err := callTool(t, session, "send_template", map[string]any{
 		"template_id": "tpl_1",
 		"recipients":  []string{"+1111111111"},
+		"variables":   map[string]any{"code": "1234"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	text := getToolText(t, result)
-	for _, want := range []string{`Template "Greeting" sent`, "Batch ID: batch_1"} {
+	for _, want := range []string{"Template SMS sent", "Batch ID: batch_1"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text should contain %q, got: %q", want, text)
 		}
@@ -110,14 +109,9 @@ func TestSendTemplateTool_Success_WithBatchID(t *testing.T) {
 
 func TestSendTemplateTool_Success_NoBatchID(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/collections/sms_templates/records/", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(SmsTemplate{
-			ID: "tpl_1", Name: "Greeting", Body: "Hello World",
-		})
-	})
-	mux.HandleFunc("/api/sms/send", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/sms/send-template", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(SendSmsResponse{
-			MessageIDs: []string{"msg_1"}, RecipientsCount: 1, Status: "queued",
+			MessageIDs: []string{"msg_1"}, RecipientsCount: 1, Status: "accepted",
 		})
 	})
 	session, cleanup := setupMCP(t, mux)
@@ -178,41 +172,11 @@ func TestSendTemplateTool_EmptyRecipients(t *testing.T) {
 	}
 }
 
-func TestSendTemplateTool_FetchError(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/collections/sms_templates/records/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"message": "not found"})
-	})
-	session, cleanup := setupMCP(t, mux)
-	defer cleanup()
-
-	result, err := callTool(t, session, "send_template", map[string]any{
-		"template_id": "missing",
-		"recipients":  []string{"+1111111111"},
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.IsError {
-		t.Error("IsError should be true")
-	}
-	text := getToolText(t, result)
-	if !strings.Contains(text, "fetch template") {
-		t.Errorf("text should contain 'fetch template', got: %q", text)
-	}
-}
-
 func TestSendTemplateTool_SendError(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/collections/sms_templates/records/", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(SmsTemplate{
-			ID: "tpl_1", Name: "Greeting", Body: "Hello World",
-		})
-	})
-	mux.HandleFunc("/api/sms/send", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/sms/send-template", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"message": "quota exceeded"})
+		json.NewEncoder(w).Encode(map[string]string{"message": "Missing variable: code"})
 	})
 	session, cleanup := setupMCP(t, mux)
 	defer cleanup()
