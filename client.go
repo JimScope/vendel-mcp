@@ -118,6 +118,70 @@ func (c *VendelClient) GetQuota(ctx context.Context) (*QuotaResponse, error) {
 	return &result, nil
 }
 
+// GetMessageStatus returns the status of a single SMS message.
+func (c *VendelClient) GetMessageStatus(ctx context.Context, messageID string) (*MessageStatusResponse, error) {
+	var result MessageStatusResponse
+	if err := c.get(ctx, "/api/sms/status/"+messageID, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// GetBatchStatus returns the status of all messages in a batch.
+func (c *VendelClient) GetBatchStatus(ctx context.Context, batchID string) (*BatchStatusResponse, error) {
+	var result BatchStatusResponse
+	if err := c.get(ctx, "/api/sms/batch/"+batchID, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ListContacts lists contacts with optional search and group filter.
+func (c *VendelClient) ListContacts(ctx context.Context, page, perPage int, search, groupID string) (*ContactListResponse, error) {
+	params := url.Values{}
+	if page > 0 {
+		params.Set("page", strconv.Itoa(page))
+	}
+	if perPage > 0 {
+		params.Set("per_page", strconv.Itoa(perPage))
+	}
+	if search != "" {
+		params.Set("search", search)
+	}
+	if groupID != "" {
+		params.Set("group_id", groupID)
+	}
+	path := "/api/contacts"
+	if q := params.Encode(); q != "" {
+		path += "?" + q
+	}
+	var result ContactListResponse
+	if err := c.get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// ListContactGroups lists contact groups.
+func (c *VendelClient) ListContactGroups(ctx context.Context, page, perPage int) (*ContactGroupListResponse, error) {
+	params := url.Values{}
+	if page > 0 {
+		params.Set("page", strconv.Itoa(page))
+	}
+	if perPage > 0 {
+		params.Set("per_page", strconv.Itoa(perPage))
+	}
+	path := "/api/contacts/groups"
+	if q := params.Encode(); q != "" {
+		path += "?" + q
+	}
+	var result ContactGroupListResponse
+	if err := c.get(ctx, path, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // ListParams holds query parameters for collection list endpoints.
 type ListParams struct {
 	Filter  string

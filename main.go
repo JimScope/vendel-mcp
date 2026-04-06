@@ -26,6 +26,8 @@ func createServer(baseURL, apiKey string) (*mcp.Server, error) {
 	registerQuotaTools(server, client)
 	registerTemplateTools(server, client)
 	registerScheduledTools(server, client)
+	registerContactTools(server, client)
+	registerStatusTools(server, client)
 
 	return server, nil
 }

@@ -82,6 +82,63 @@ type SmsTemplate struct {
 	Updated string `json:"updated"`
 }
 
+// MessageStatusResponse is the response from GET /api/sms/status/{id}.
+type MessageStatusResponse struct {
+	ID           string `json:"id"`
+	BatchID      string `json:"batch_id"`
+	Recipient    string `json:"recipient"`
+	Status       string `json:"status"`
+	ErrorMessage string `json:"error_message"`
+	DeviceID     string `json:"device_id"`
+	Created      string `json:"created"`
+	Updated      string `json:"updated"`
+}
+
+// BatchStatusResponse is the response from GET /api/sms/batch/{batchId}.
+type BatchStatusResponse struct {
+	BatchID      string            `json:"batch_id"`
+	Total        int               `json:"total"`
+	StatusCounts map[string]int    `json:"status_counts"`
+	Messages     []MessageStatusResponse `json:"messages"`
+}
+
+// Contact represents a record in the contacts collection.
+type Contact struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	PhoneNumber string   `json:"phone_number"`
+	Groups      []string `json:"groups"`
+	Notes       string   `json:"notes"`
+	Created     string   `json:"created"`
+	Updated     string   `json:"updated"`
+}
+
+// ContactGroup represents a record in the contact_groups collection.
+type ContactGroup struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Created string `json:"created"`
+	Updated string `json:"updated"`
+}
+
+// ContactListResponse is the response from GET /api/contacts.
+type ContactListResponse struct {
+	Items      []Contact `json:"items"`
+	Page       int       `json:"page"`
+	PerPage    int       `json:"per_page"`
+	TotalItems int       `json:"total_items"`
+	TotalPages int       `json:"total_pages"`
+}
+
+// ContactGroupListResponse is the response from GET /api/contacts/groups.
+type ContactGroupListResponse struct {
+	Items      []ContactGroup `json:"items"`
+	Page       int            `json:"page"`
+	PerPage    int            `json:"per_page"`
+	TotalItems int            `json:"total_items"`
+	TotalPages int            `json:"total_pages"`
+}
+
 // ScheduledSms represents a record in the scheduled_sms collection.
 type ScheduledSms struct {
 	ID             string   `json:"id"`
